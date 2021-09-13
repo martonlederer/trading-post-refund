@@ -172,6 +172,9 @@ async function loopRefund(after, address, orders) {
       // if the order was successful, cancelled or returned, there is no need to refund anything
       if (orderData?.status === "success" || orderData?.status === "returned" || orderData?.status === "cancelled" || orderData?.status === "refunded") continue;
 
+      // TODO: check ehat if a cancelled order was made during the gateway issues and the user cancelled it. Did it return?
+      // the same way refunded orders should be checked
+
       /**
       // THIS IS NOT NEEDED
       // if the order was cancelled, check if the cancel tx was sent

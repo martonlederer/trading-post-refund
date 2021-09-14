@@ -4,9 +4,10 @@ const fs = require("fs");
 const path = require("path");
 const { default: Verto } = require("@verto/js");
 const axios = require("axios");
+const { interactWrite } = require("smartweave");
 
-/**const walletFile = fs.readFileSync(path.join(__dirname, "./arweave.json"));
-const wallet = JSON.parse(new TextDecoder().decode(walletFile));**/
+const walletFile = fs.readFileSync(path.join(__dirname, "./arweave.json"));
+const wallet = JSON.parse(new TextDecoder().decode(walletFile));
 
 const arweave = new Arweave({
   host: "arweave.net",
@@ -16,10 +17,8 @@ const arweave = new Arweave({
 const client = new Verto();
 const CACHE_URL = "https://v2.cache.verto.exchange";
 
-//const walletAddress = await arweave.wallets.jwkToAddress(wallet);
+const walletAddress = await arweave.wallets.jwkToAddress(wallet);
 
-// TODO remove this, read it from the wallet file
-const walletAddress = "WNeEQzI24ZKWslZkQT573JZ8bhatwDVx6XVDrrGbUyk";
 /*
 (async () => {
   let after = undefined;
@@ -119,6 +118,9 @@ async function loopRefund(after, address, orders) {
           cursor
           node {
             id
+            owner {
+              address
+            }
             tags {
               name
               value
@@ -134,7 +136,7 @@ async function loopRefund(after, address, orders) {
   let lastCursor = "";
 
   // loop through orders for the trading post
-  for (const { cursor, node: { id, tags, quantity: { ar: arQty } } } of ordersTxs.data.transactions.edges) {
+  for (const { cursor, node: { id, owner: { address: owner }, tags, quantity: { ar: arQty } } } of ordersTxs.data.transactions.edges) {
     lastCursor = cursor;
 
     // handle sell orders
@@ -158,8 +160,29 @@ async function loopRefund(after, address, orders) {
       // if the order was filled already, continue
       if (refundAmount <= 0) continue;
 
-      console.log(`[Sell Order] Refund qty ${refundAmount} of ${getTagValue("Contract", tags)}. (${id})`);
-      // TODO: refund sell here, send back the psts
+      try {
+        const transferID = await interactWrite(
+          arweave,
+          wallet,
+          getTagValue("Contract", tags),
+          {
+            function: "transfer",
+            target: owner,
+            qty: refundAmount
+          },
+          [
+            { name: "Exchange", value: "Verto" },
+            { name: "Action", value: "Transfer" },
+            { name: "Type", value: "Refund" },
+            { name: "Order", value: id }
+          ],
+          refundAmount
+        );
+        console.log(`[Sell Order] Refunded ${refundAmount} of ${getTagValue("Contract", tags)} to ${owner}. (OrderID: ${id} - RefundID: ${transferID})`);
+      } catch (e) {
+        console.error(`Could not refund ${id}`);
+        console.log(e);
+      }
     }
 
     // handle buy orders
@@ -167,7 +190,7 @@ async function loopRefund(after, address, orders) {
       // how much AR was sent with this buy order
       let refundAmount = arQty;
       // try to get the order from the cache
-      const { data: orderData } = await axios.get(`https://v2.cache.verto.exchange/order/${id}`);
+      const { data: orderData } = await axios.get(`${CACHE_URL}/order/${id}`);
 
       // if the order was successful, cancelled or returned, there is no need to refund anything
       if (orderData?.status === "success" || orderData?.status === "returned" || orderData?.status === "cancelled" || orderData?.status === "refunded") continue;

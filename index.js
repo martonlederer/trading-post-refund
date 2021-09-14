@@ -227,8 +227,24 @@ async function loopRefund(after, address, orders) {
         if(cancelTxQuery.data.transactions.edges.length !== 0) 
       }**/
 
-      console.log(`[Buy Order] Refund ${refundAmount} AR. (${id})`);
-      // TODO: refund buy here, send back the AR
+      try {
+        const refundTx = await arweave.createTransaction({
+          target: owner,
+          quantity: arweave.ar.arToWinston(refundAmount)
+        }, wallet);
+
+        refundTx.addTag("Exchange", "Verto");
+        refundTx.addTag("Type", "Refund");
+        refundTx.addTag("Order", id);
+
+        await arweave.transactions.sign(refundTx, key);
+        await arweave.transactions.post(refundTx);
+
+        console.log(`[Buy Order] Refunded ${refundAmount} AR to ${owner}. (OrderID: ${id} - RefundID: ${refundTx.id})`);
+      } catch (e) {
+        console.error(`Could not refund ${id}`);
+        console.log(e);
+      }
     }
   }
 

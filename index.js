@@ -5,9 +5,9 @@ const path = require("path");
 const { default: Verto } = require("@verto/js");
 const axios = require("axios");
 const { interactWrite } = require("smartweave");
-
+/**
 const walletFile = fs.readFileSync(path.join(__dirname, "./arweave.json"));
-const wallet = JSON.parse(new TextDecoder().decode(walletFile));
+const wallet = JSON.parse(new TextDecoder().decode(walletFile));*/
 
 const arweave = new Arweave({
   host: "arweave.net",
@@ -17,7 +17,8 @@ const arweave = new Arweave({
 const client = new Verto();
 const CACHE_URL = "https://v2.cache.verto.exchange";
 
-const walletAddress = await arweave.wallets.jwkToAddress(wallet);
+//const walletAddress = await arweave.wallets.jwkToAddress(wallet);
+const walletAddress = "";
 
 /*
 (async () => {
@@ -161,7 +162,7 @@ async function loopRefund(after, address, orders) {
       if (refundAmount <= 0) continue;
 
       try {
-        const transferID = await interactWrite(
+        /*const transferID = await interactWrite(
           arweave,
           wallet,
           getTagValue("Contract", tags),
@@ -177,7 +178,7 @@ async function loopRefund(after, address, orders) {
             { name: "Order", value: id }
           ],
           refundAmount
-        );
+        );*/
         console.log(`[Sell Order] Refunded ${refundAmount} of ${getTagValue("Contract", tags)} to ${owner}. (OrderID: ${id} - RefundID: ${transferID})`);
       } catch (e) {
         console.error(`Could not refund ${id}`);
@@ -228,7 +229,7 @@ async function loopRefund(after, address, orders) {
       }**/
 
       try {
-        const refundTx = await arweave.createTransaction({
+        /*const refundTx = await arweave.createTransaction({
           target: owner,
           quantity: arweave.ar.arToWinston(refundAmount)
         }, wallet);
@@ -238,7 +239,7 @@ async function loopRefund(after, address, orders) {
         refundTx.addTag("Order", id);
 
         await arweave.transactions.sign(refundTx, key);
-        await arweave.transactions.post(refundTx);
+        await arweave.transactions.post(refundTx);*/
 
         console.log(`[Buy Order] Refunded ${refundAmount} AR to ${owner}. (OrderID: ${id} - RefundID: ${refundTx.id})`);
       } catch (e) {

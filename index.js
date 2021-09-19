@@ -193,7 +193,7 @@ async function loopRefund(after, address, orders) {
       const { data: orderData } = await axios.get(`${CACHE_URL}/order/${id}`);
 
       // if the order was successful, cancelled or returned, there is no need to refund anything
-      if (orderData?.status === "success" || orderData?.status === "returned" || orderData?.status === "cancelled" || orderData?.status === "refunded") continue;
+      if (orderData?.status === "success" || orderData?.status === "returned" || orderData?.status === "refunded") continue;
 
       // TODO: check ehat if a cancelled order was made during the gateway issues and the user cancelled it. Did it return?
       // the same way refunded orders should be checked

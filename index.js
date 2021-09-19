@@ -179,7 +179,7 @@ async function loopRefund(after, address, orders) {
           ],
           refundAmount
         );*/
-        console.log(`[Sell Order] Refunded ${refundAmount} of ${getTagValue("Contract", tags)} to ${owner}. (OrderID: ${id} - RefundID: ${transferID})`);
+        console.log(`[Sell Order] Refunded ${refundAmount} of ${getTagValue("Contract", tags)} to ${owner}. (OrderID: ${id} - RefundID: ---)`);
       } catch (e) {
         console.error(`Could not refund ${id}`);
         console.log(e);
@@ -241,7 +241,7 @@ async function loopRefund(after, address, orders) {
         await arweave.transactions.sign(refundTx, key);
         await arweave.transactions.post(refundTx);*/
 
-        console.log(`[Buy Order] Refunded ${refundAmount} AR to ${owner}. (OrderID: ${id} - RefundID: ${refundTx.id})`);
+        console.log(`[Buy Order] Refunded ${refundAmount} AR to ${owner}. (OrderID: ${id} - RefundID: ---)`);
       } catch (e) {
         console.error(`Could not refund ${id}`);
         console.log(e);

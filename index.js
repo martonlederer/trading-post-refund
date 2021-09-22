@@ -195,37 +195,27 @@ async function loopRefund(after, address, orders) {
       // if the order was successful, cancelled or returned, there is no need to refund anything
       if (orderData?.status === "success" || orderData?.status === "returned" || orderData?.status === "refunded") continue;
 
-      // TODO: check ehat if a cancelled order was made during the gateway issues and the user cancelled it. Did it return?
-      // the same way refunded orders should be checked
-
-      /**
-      // THIS IS NOT NEEDED
-      // if the order was cancelled, check if the cancel tx was sent
-      if (orderData?.status === "cancelled") {
-        const cancelTxQuery = await arGql.run(`
-          query($orderID: [String!]!) {
-            transactions(
-              tags: [
-                { name: "Exchange", values: "Verto" }
-                { name: "Type", values: "Cancel-PST-Transfer" }
-                { name: "Order", values: $orderID }
-              ]
-            ) {
-              edges {
-                node {
-                  tags {
-                    name
-                    value
-                  }
-                }
+      // check if it was cancelled
+      const cancelRes = await arGql.run(`
+        query ($orderID: [String!]!) {
+          transactions(
+            tags: [
+              { name: "Exchange", values: "Verto" }
+              { name: "Type", values: "Cancel-PST-Transfer" }
+              { name: "Order", values: $orderID }
+            ]
+          ) {
+            edges {
+              node {
+                id
               }
             }
           }
-        `, { orderID: id });
+        }      
+      `, { orderID: id });
 
-        // if there is a cancel tx, check if it sent the right amount of back
-        if(cancelTxQuery.data.transactions.edges.length !== 0) 
-      }**/
+      // if cancel return tx exists, continue
+      if (cancelRes.data.transactions.edges.length > 0) continue;
 
       try {
         const refundTx = await arweave.createTransaction({

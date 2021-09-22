@@ -160,6 +160,28 @@ async function loopRefund(after, address, orders) {
       // if the order was filled already, continue
       if (refundAmount <= 0) continue;
 
+      // check if it was successfully cancelled
+      const cancelRes = await arGql.run(`
+        query ($orderID: [String!]!) {
+          transactions(
+            tags: [
+              { name: "Exchange", values: "Verto" }
+              { name: "Type", values: "Cancel-PST-Transfer" }
+              { name: "Order", values: $orderID }
+            ]
+          ) {
+            edges {
+              node {
+                id
+              }
+            }
+          }
+        }      
+      `, { orderID: id });
+
+      // if cancel return tx exists, continue
+      if (cancelRes.data.transactions.edges.length > 0) continue;
+
       try {
         const transferID = await interactWrite(
           arweave,
@@ -195,13 +217,13 @@ async function loopRefund(after, address, orders) {
       // if the order was successful, cancelled or returned, there is no need to refund anything
       if (orderData?.status === "success" || orderData?.status === "returned" || orderData?.status === "refunded") continue;
 
-      // check if it was cancelled
+      // check if it was successfully cancelled
       const cancelRes = await arGql.run(`
         query ($orderID: [String!]!) {
           transactions(
             tags: [
               { name: "Exchange", values: "Verto" }
-              { name: "Type", values: "Cancel-PST-Transfer" }
+              { name: "Type", values: "Cancel-AR-Transfer" }
               { name: "Order", values: $orderID }
             ]
           ) {

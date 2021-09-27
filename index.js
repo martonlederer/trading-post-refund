@@ -36,7 +36,11 @@ let mapData = [];
 
   CURRENT_BLOCK = (await arweave.network.getInfo()).height;
 
-  await loopRefund(undefined, walletAddress, orders);
+  try {
+    await loopRefund(undefined, walletAddress, orders);
+  } catch (e) {
+    console.log(`Error looping through refund: ${e}`);
+  }
 
   // Create a refunds map file
   fs.writeFileSync(mapFileName, JSON.stringify(mapData, null, 2));

@@ -17,16 +17,22 @@ const arweave = new Arweave({
 const client = new Verto();
 const CACHE_URL = "https://v2.cache.verto.exchange";
 
-const walletAddress = await arweave.wallets.jwkToAddress(wallet);
+const mapFileName = path.join(__dirname, "./refund.map.json");
+let mapData = [];
 
 (async () => {
+  const walletAddress = await arweave.wallets.jwkToAddress(wallet);
+  
   // get orders for post by getting the post url
   const post = (await client.getTradingPosts()).find(({ address }) => address === walletAddress);
   const postURL = post.endpoint.replace("/ping", "");
   const { data: orders } = await axios.get(`${postURL}/orders`);
   ///
 
-  loopRefund(undefined, walletAddress, orders)
+  await loopRefund(undefined, walletAddress, orders);
+
+  // Create a refunds map file
+  fs.writeFileSync(mapFileName, JSON.stringify(mapData, null, 2));
 })();
 
 async function loopRefund(after, address, orders) {
@@ -131,9 +137,24 @@ async function loopRefund(after, address, orders) {
           refundAmount
         );
         console.log(`[Sell Order] Refunded ${refundAmount} of ${getTagValue("Contract", tags)} to ${owner}. (OrderID: ${id} - RefundID: ${transferID})`);
+        mapData.push({
+          type: "Sell",
+          result: "success",
+          id,
+          transferID,
+          amount: refundAmount,
+          token: getTagValue("Contract", tags),
+          recipient: owner
+        });
       } catch (e) {
         console.error(`Could not refund ${id}`);
         console.log(e);
+        mapData.push({
+          type: "Sell",
+          result: "error",
+          id,
+          error: e
+        });
       }
     }
 
@@ -183,15 +204,30 @@ async function loopRefund(after, address, orders) {
         await arweave.transactions.post(refundTx);
 
         console.log(`[Buy Order] Refunded ${refundAmount} AR to ${owner}. (OrderID: ${id} - RefundID: ${refundTx.id})`);
+        mapData.push({
+          type: "Buy",
+          result: "success",
+          id,
+          transferID: refundTx.id,
+          amount: refundAmount,
+          token: "AR",
+          recipient: owner
+        });
       } catch (e) {
         console.error(`Could not refund ${id}`);
         console.log(e);
+        mapData.push({
+          type: "Buy",
+          result: "error",
+          id,
+          error: e
+        });
       }
     }
   }
 
   if (ordersTxs.data.transactions.pageInfo.hasNextPage)
-    loopRefund(lastCursor, address, orders);
+    await loopRefund(lastCursor, address, orders);
   else
     console.log("All orders refunded")
 }

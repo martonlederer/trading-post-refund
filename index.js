@@ -17,87 +17,30 @@ const arweave = new Arweave({
 const client = new Verto();
 const CACHE_URL = "https://v2.cache.verto.exchange";
 
-//const walletAddress = await arweave.wallets.jwkToAddress(wallet);
-const walletAddress = "";
+/// MINIMUM BLOCK HEIGHT
+const MIN_BLOCK = 699977;
 
-/*
+let CURRENT_BLOCK = MIN_BLOCK;
+
+const mapFileName = path.join(__dirname, "./refund.map.json");
+let mapData = [];
+
 (async () => {
-  let after = undefined;
-
-  const ordersTxs = await arGql.run(`
-    query($address: String!, $after: String) {
-      transactions(
-        recipients: [$address]
-        tags: [
-          { name: "Exchange", values: "Verto" }
-          { name: "Type", values: ["Buy", "Sell"] }
-        ]
-        after: $after
-      ) {
-        edges {
-          cursor
-          node {
-            id
-            tags {
-              name
-              value
-            }
-          }
-        }
-      }
-    }  
-  `, {
-    address: walletAddress,
-    after
-  });
-
-  for (const { cursor, node: { id, tags } } of ordersTxs.data.transactions.edges) {
-    after = cursor;
-
-    if (tags.find(({ name }) => name === "Type").value === "Sell") {
-      const { data:  } = await axios.get(`${CACHE_URL}/order/${id}`);
-      const tradingPost
-    }
-  }
-})();*/
-
-/*
-// if it is in the order book
-(async () => {
-  // get balances of the trading post
-  const balances = await client.getBalances(walletAddress)
+  //const walletAddress = await arweave.wallets.jwkToAddress(wallet);
+  const walletAddress = "WNeEQzI24ZKWslZkQT573JZ8bhatwDVx6XVDrrGbUyk";
   
-  for (const balance of balances) {
-    // get orders for this token
-    const orders = await client.getOrderBook(walletAddress, balance.id);
-
-    for (const order of orders) {
-      // sell orders
-      if (order.type === "Sell") {
-        // refund amount
-        const toRefund = order.amnt - order.received;
-
-        // filled orders don't get refund
-        if (toRefund <= 0) continue;
-
-        // transfer
-        //await client.transfer(toRefund, balance.id, order.addr);
-      } else {
-      // buy orders
-        if (order.)
-      }
-    }
-  }
-})();*/
-
-(async () => {
   // get orders for post by getting the post url
   const post = (await client.getTradingPosts()).find(({ address }) => address === walletAddress);
   const postURL = post.endpoint.replace("/ping", "");
   const { data: orders } = await axios.get(`${postURL}/orders`);
   ///
 
-  loopRefund(undefined, walletAddress, orders)
+  CURRENT_BLOCK = (await arweave.network.getInfo()).height;
+
+  await loopRefund(undefined, walletAddress, orders);
+
+  // Create a refunds map file
+  fs.writeFileSync(mapFileName, JSON.stringify(mapData, null, 2));
 })();
 
 async function loopRefund(after, address, orders) {
@@ -111,6 +54,10 @@ async function loopRefund(after, address, orders) {
         ]
         after: $after
         first: 50
+        block: {
+          min: ${MIN_BLOCK}
+          max: ${CURRENT_BLOCK}
+        }
       ) {
         pageInfo {
           hasNextPage
@@ -161,6 +108,28 @@ async function loopRefund(after, address, orders) {
       // if the order was filled already, continue
       if (refundAmount <= 0) continue;
 
+      // check if it was successfully cancelled
+      const cancelRes = await arGql.run(`
+        query ($orderID: [String!]!) {
+          transactions(
+            tags: [
+              { name: "Exchange", values: "Verto" }
+              { name: "Type", values: "Cancel-PST-Transfer" }
+              { name: "Order", values: $orderID }
+            ]
+          ) {
+            edges {
+              node {
+                id
+              }
+            }
+          }
+        }      
+      `, { orderID: id });
+
+      // if cancel return tx exists, continue
+      if (cancelRes.data.transactions.edges.length > 0) continue;
+
       try {
         /*const transferID = await interactWrite(
           arweave,
@@ -179,10 +148,26 @@ async function loopRefund(after, address, orders) {
           ],
           refundAmount
         );*/
-        console.log(`[Sell Order] Refunded ${refundAmount} of ${getTagValue("Contract", tags)} to ${owner}. (OrderID: ${id} - RefundID: ---)`);
+        const transferID = "EXAMPLE_SELL_ID";
+        console.log(`[Sell Order] Refunded ${refundAmount} of ${getTagValue("Contract", tags)} to ${owner}. (OrderID: ${id} - RefundID: ${transferID})`);
+        mapData.push({
+          type: "Sell",
+          result: "success",
+          id,
+          transferID,
+          amount: refundAmount,
+          token: getTagValue("Contract", tags),
+          recipient: owner
+        });
       } catch (e) {
         console.error(`Could not refund ${id}`);
         console.log(e);
+        mapData.push({
+          type: "Sell",
+          result: "error",
+          id,
+          error: e
+        });
       }
     }
 
@@ -194,39 +179,29 @@ async function loopRefund(after, address, orders) {
       const { data: orderData } = await axios.get(`${CACHE_URL}/order/${id}`);
 
       // if the order was successful, cancelled or returned, there is no need to refund anything
-      if (orderData?.status === "success" || orderData?.status === "returned" || orderData?.status === "cancelled" || orderData?.status === "refunded") continue;
+      if (orderData?.status === "success" || orderData?.status === "returned" || orderData?.status === "refunded") continue;
 
-      // TODO: check ehat if a cancelled order was made during the gateway issues and the user cancelled it. Did it return?
-      // the same way refunded orders should be checked
-
-      /**
-      // THIS IS NOT NEEDED
-      // if the order was cancelled, check if the cancel tx was sent
-      if (orderData?.status === "cancelled") {
-        const cancelTxQuery = await arGql.run(`
-          query($orderID: [String!]!) {
-            transactions(
-              tags: [
-                { name: "Exchange", values: "Verto" }
-                { name: "Type", values: "Cancel-PST-Transfer" }
-                { name: "Order", values: $orderID }
-              ]
-            ) {
-              edges {
-                node {
-                  tags {
-                    name
-                    value
-                  }
-                }
+      // check if it was successfully cancelled
+      const cancelRes = await arGql.run(`
+        query ($orderID: [String!]!) {
+          transactions(
+            tags: [
+              { name: "Exchange", values: "Verto" }
+              { name: "Type", values: "Cancel-AR-Transfer" }
+              { name: "Order", values: $orderID }
+            ]
+          ) {
+            edges {
+              node {
+                id
               }
             }
           }
-        `, { orderID: id });
+        }      
+      `, { orderID: id });
 
-        // if there is a cancel tx, check if it sent the right amount of back
-        if(cancelTxQuery.data.transactions.edges.length !== 0) 
-      }**/
+      // if cancel return tx exists, continue
+      if (cancelRes.data.transactions.edges.length > 0) continue;
 
       try {
         /*const refundTx = await arweave.createTransaction({
@@ -241,16 +216,33 @@ async function loopRefund(after, address, orders) {
         await arweave.transactions.sign(refundTx, key);
         await arweave.transactions.post(refundTx);*/
 
-        console.log(`[Buy Order] Refunded ${refundAmount} AR to ${owner}. (OrderID: ${id} - RefundID: ---)`);
+        const refundTx = { id: "EXAMPLE_BUY_ID" }
+
+        console.log(`[Buy Order] Refunded ${refundAmount} AR to ${owner}. (OrderID: ${id} - RefundID: ${refundTx.id})`);
+        mapData.push({
+          type: "Buy",
+          result: "success",
+          id,
+          transferID: refundTx.id,
+          amount: refundAmount,
+          token: "AR",
+          recipient: owner
+        });
       } catch (e) {
         console.error(`Could not refund ${id}`);
         console.log(e);
+        mapData.push({
+          type: "Buy",
+          result: "error",
+          id,
+          error: e
+        });
       }
     }
   }
 
   if (ordersTxs.data.transactions.pageInfo.hasNextPage)
-    loopRefund(lastCursor, address, orders);
+    await loopRefund(lastCursor, address, orders);
   else
     console.log("All orders refunded")
 }

@@ -17,6 +17,11 @@ const arweave = new Arweave({
 const client = new Verto();
 const CACHE_URL = "https://v2.cache.verto.exchange";
 
+/// MINIMUM BLOCK HEIGHT
+const MIN_BLOCK = 699977;
+
+let CURRENT_BLOCK = MIN_BLOCK;
+
 const mapFileName = path.join(__dirname, "./refund.map.json");
 let mapData = [];
 
@@ -28,6 +33,8 @@ let mapData = [];
   const postURL = post.endpoint.replace("/ping", "");
   const { data: orders } = await axios.get(`${postURL}/orders`);
   ///
+
+  CURRENT_BLOCK = (await arweave.network.getInfo()).height;
 
   await loopRefund(undefined, walletAddress, orders);
 
@@ -46,6 +53,10 @@ async function loopRefund(after, address, orders) {
         ]
         after: $after
         first: 50
+        block: {
+          min: ${MIN_BLOCK}
+          max: ${CURRENT_BLOCK}
+        }
       ) {
         pageInfo {
           hasNextPage

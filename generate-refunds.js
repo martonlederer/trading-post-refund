@@ -6,7 +6,7 @@ const { default: Verto } = require("@verto/js");
 const axios = require("axios");
 
 // set trading post address here
-const tradingPostAddress = "dxGmt44SZenqmHa-_IEl8AmuejgITs4pB3oe-xUR36A";
+const tradingPostAddress = "";
 
 const arweave = new Arweave({
   host: "arweave.net",

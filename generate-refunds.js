@@ -133,7 +133,8 @@ async function loopRefund(after, orders) {
       try {
         const transferTransaction = await arweave.createTransaction({
           target: owner,
-          quantity: "0"
+          quantity: "0",
+          data: "This is a trading post refund transaction."
         });
 
         transferTransaction.addTag("Exchange", "Verto");

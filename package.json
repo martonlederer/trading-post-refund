@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "run-refund": "node index.js"
+    "generate-txs": "node generate-refunds.js",
+    "execute-refunds": "node run-refunds.js"
   },
   "dependencies": {
     "@verto/js": "^0.0.0-alpha.19",

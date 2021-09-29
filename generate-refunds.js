@@ -4,7 +4,6 @@ const fs = require("fs");
 const path = require("path");
 const { default: Verto } = require("@verto/js");
 const axios = require("axios");
-const { simulateInteractWrite } = require("smartweave");
 
 // set trading post address here
 const tradingPostAddress = "";

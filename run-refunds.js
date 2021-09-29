@@ -10,7 +10,7 @@ const arweave = new Arweave({
   port: "443",
   protocol: "https"
 });
-const logFileName = path.join(__dirname, "./refund.map.json");
+const logFileName = path.join(__dirname, "./refund.log.json");
 let logData = [];
 
 (async () => {

@@ -6,7 +6,7 @@ const { default: Verto } = require("@verto/js");
 const axios = require("axios");
 
 // set trading post address here
-const tradingPostAddress = "";
+const tradingPostAddress = "dxGmt44SZenqmHa-_IEl8AmuejgITs4pB3oe-xUR36A";
 
 const arweave = new Arweave({
   host: "arweave.net",
@@ -207,7 +207,8 @@ async function loopRefund(after, orders) {
       try {
         const refundTx = await arweave.createTransaction({
           target: owner,
-          quantity: arweave.ar.arToWinston(refundAmount)
+          quantity: arweave.ar.arToWinston(refundAmount),
+          data: "This is a trading post refund transaction."
         });
 
         refundTx.addTag("Exchange", "Verto");

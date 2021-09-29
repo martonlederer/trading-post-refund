@@ -4,10 +4,10 @@ const fs = require("fs");
 const path = require("path");
 const { default: Verto } = require("@verto/js");
 const axios = require("axios");
-const { interactWrite } = require("smartweave");
+const { simulateInteractWrite } = require("smartweave");
 
-const walletFile = fs.readFileSync(path.join(__dirname, "./arweave.json"));
-const wallet = JSON.parse(new TextDecoder().decode(walletFile));
+// set trading post address here
+const tradingPostAddress = "";
 
 const arweave = new Arweave({
   host: "arweave.net",
@@ -25,11 +25,9 @@ let CURRENT_BLOCK = MIN_BLOCK;
 const mapFileName = path.join(__dirname, "./refund.map.json");
 let mapData = [];
 
-(async () => {
-  const walletAddress = await arweave.wallets.jwkToAddress(wallet);
-  
+(async () => {  
   // get orders for post by getting the post url
-  const post = (await client.getTradingPosts()).find(({ address }) => address === walletAddress);
+  const post = (await client.getTradingPosts()).find(({ address }) => address === tradingPostAddress);
   const postURL = post.endpoint.replace("/ping", "");
   const { data: orders } = await axios.get(`${postURL}/orders`);
   ///
@@ -37,7 +35,7 @@ let mapData = [];
   CURRENT_BLOCK = (await arweave.network.getInfo()).height;
 
   try {
-    await loopRefund(undefined, walletAddress, orders);
+    await loopRefund(undefined, orders);
   } catch (e) {
     console.log(`Error looping through refund: ${e}`);
   }
@@ -46,7 +44,7 @@ let mapData = [];
   fs.writeFileSync(mapFileName, JSON.stringify(mapData, null, 2));
 })();
 
-async function loopRefund(after, address, orders) {
+async function loopRefund(after, orders) {
   const ordersTxs = await arGql.run(`
     query($address: String!, $after: String) {
       transactions(
@@ -83,7 +81,7 @@ async function loopRefund(after, address, orders) {
         }
       }
     }  
-  `, { address, after });
+  `, { address: tradingPostAddress, after });
   let lastCursor = "";
 
   // loop through orders for the trading post
@@ -134,32 +132,33 @@ async function loopRefund(after, address, orders) {
       if (cancelRes.data.transactions.edges.length > 0) continue;
 
       try {
-        const transferID = await interactWrite(
-          arweave,
-          wallet,
-          getTagValue("Contract", tags),
-          {
-            function: "transfer",
-            target: owner,
-            qty: refundAmount
-          },
-          [
-            { name: "Exchange", value: "Verto" },
-            { name: "Action", value: "Transfer" },
-            { name: "Type", value: "Refund" },
-            { name: "Order", value: id }
-          ],
-          refundAmount
-        );
-        console.log(`[Sell Order] Refunded ${refundAmount} of ${getTagValue("Contract", tags)} to ${owner}. (OrderID: ${id} - RefundID: ${transferID})`);
+        const transferTransaction = await arweave.createTransaction({
+          target: owner,
+          quantity: "0"
+        });
+
+        transferTransaction.addTag("Exchange", "Verto");
+        transferTransaction.addTag("Action", "Transfer");
+        transferTransaction.addTag("Type", "Refund");
+        transferTransaction.addTag("Order", id);
+        transferTransaction.addTag("App-Name", "SmartWeaveAction");
+        transferTransaction.addTag("App-Version", "0.3.0");
+        transferTransaction.addTag("Contract", getTagValue("Contract", tags));
+        transferTransaction.addTag("Input", JSON.stringify({
+          function: "transfer",
+          target: owner,
+          qty: refundAmount
+        }));
+
+        console.log(`[Sell Order] Refund ${refundAmount} of ${getTagValue("Contract", tags)} to ${owner}. (OrderID: ${id})`);
         mapData.push({
           type: "Sell",
           result: "success",
           id,
-          transferID,
           amount: refundAmount,
           token: getTagValue("Contract", tags),
-          recipient: owner
+          recipient: owner,
+          transaction: transferTransaction
         });
       } catch (e) {
         console.error(`Could not refund ${id}`);
@@ -209,24 +208,21 @@ async function loopRefund(after, address, orders) {
         const refundTx = await arweave.createTransaction({
           target: owner,
           quantity: arweave.ar.arToWinston(refundAmount)
-        }, wallet);
+        });
 
         refundTx.addTag("Exchange", "Verto");
         refundTx.addTag("Type", "Refund");
         refundTx.addTag("Order", id);
 
-        await arweave.transactions.sign(refundTx, key);
-        await arweave.transactions.post(refundTx);
-
-        console.log(`[Buy Order] Refunded ${refundAmount} AR to ${owner}. (OrderID: ${id} - RefundID: ${refundTx.id})`);
+        console.log(`[Buy Order] Refund ${refundAmount} AR to ${owner}. (OrderID: ${id}`);
         mapData.push({
           type: "Buy",
           result: "success",
           id,
-          transferID: refundTx.id,
           amount: refundAmount,
           token: "AR",
-          recipient: owner
+          recipient: owner,
+          transaction: refundTx
         });
       } catch (e) {
         console.error(`Could not refund ${id}`);
@@ -242,7 +238,7 @@ async function loopRefund(after, address, orders) {
   }
 
   if (ordersTxs.data.transactions.pageInfo.hasNextPage)
-    await loopRefund(lastCursor, address, orders);
+    await loopRefund(lastCursor, orders);
   else
     console.log("All orders refunded")
 }

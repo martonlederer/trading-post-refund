@@ -2,6 +2,7 @@ const Arweave = require("arweave");
 const fs = require("fs");
 const path = require("path");
 
+const feeMultiplier = 2;
 const wallet = JSON.parse(fs.readFileSync(path.join(__dirname, "./arweave.json")));
 const refundMap = JSON.parse(fs.readFileSync(path.join(__dirname, "./refund.map.json")));
 
@@ -19,6 +20,8 @@ let logData = [];
       ...rawTx,
       owner: wallet.n
     });
+
+    transaction.reward = Math.round(parseFloat(transaction.reward) * feeMultiplier).toString();
 
     try {
       await arweave.transactions.sign(transaction, wallet);

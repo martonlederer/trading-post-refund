@@ -1,7 +1,8 @@
 {
   "scripts": {
     "generate-txs": "node generate-refunds.js",
-    "execute-refunds": "node run-refunds.js"
+    "execute-refunds": "node run-refunds.js",
+    "generate-missing-refuns": "node generate-missing-refunds.js"
   },
   "dependencies": {
     "@verto/js": "^0.0.0-alpha.19",

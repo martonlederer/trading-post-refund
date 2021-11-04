@@ -2,3 +2,4 @@ node_modules
 arweave.json
 refund.map.json
 refund.log.json
+balances.json

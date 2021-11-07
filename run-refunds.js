@@ -2,7 +2,7 @@ const Arweave = require("arweave");
 const fs = require("fs");
 const path = require("path");
 
-const feeMultiplier = 2;
+const feeMultiplier = 10;
 const wallet = JSON.parse(fs.readFileSync(path.join(__dirname, "./arweave.json")));
 const refundMap = JSON.parse(fs.readFileSync(path.join(__dirname, "./refund.map.json")));
 

@@ -26,7 +26,7 @@ let logData = [];
     try {
       await arweave.transactions.sign(transaction, wallet);
       
-      const uploader = await client.transactions.getUploader(transaction);
+      const uploader = await arweave.transactions.getUploader(transaction);
 
       while (!uploader.isComplete) {
         await uploader.uploadChunk();

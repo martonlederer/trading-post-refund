@@ -21,7 +21,7 @@ let logData = [];
       owner: wallet.n
     });
 
-    //transaction.reward = Math.round(parseFloat(transaction.reward) * feeMultiplier).toString();
+    transaction.reward = Math.round(parseFloat(transaction.reward) * feeMultiplier).toString();
 
     try {
       await arweave.transactions.sign(transaction, wallet);
